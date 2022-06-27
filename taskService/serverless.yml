@@ -1,0 +1,65 @@
+service: taskService
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: dev
+  region: us-east-1
+  environment:
+    DYNAMODB_TABLE_NAME: ${self:custom.taskTableName}
+
+custom:
+  taskTableName: task-table-${self:provider.stage}
+ 
+functions:
+  get:
+    handler: src/index.getService
+    name: get-task
+    memorySize: 128
+    timeout: 5
+    events:
+      - httpApi:
+          path: /task/get
+          method: GET
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:GetItem"
+        Resource: !GetAtt TaskTable.Arn
+
+  create:
+    handler: src/index.createService
+    name: create-task
+    memorySize: 128
+    timeout: 5
+    events:
+      - httpApi:
+          path: /task/create
+          method: POST
+    iamRoleStatements:
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:PutItem"
+          Resource: !GetAtt TaskTable.Arn
+
+resources:
+  Resources:
+    TaskTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.taskTableName}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+  - serverless-jest-plugin
+  - serverless-iam-roles-per-function
